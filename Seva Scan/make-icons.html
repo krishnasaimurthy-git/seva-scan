@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEVA SCAN | Icon Maker</title>
+    <style>
+        body { background: #f9f7f2; font-family: sans-serif; text-align: center; padding: 50px; color: #1a1a1a; }
+        .preview { width: 150px; height: 150px; border-radius: 24px; box-shadow: 0 10px 20px rgba(217, 119, 87, 0.3); margin: 0 auto 30px; display: block; }
+        .btn { display: inline-block; padding: 14px 24px; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; margin: 5px; cursor: pointer; border: none; font-size: 16px; }
+        .btn-primary { background: #d97757; }
+        .btn-primary:hover { background: #c26547; }
+        .btn-secondary { background: #1a1a1a; }
+        .btn-secondary:hover { background: #333; }
+    </style>
+</head>
+<body>
+
+    <h2>SEVA SCAN Icon Generator</h2>
+    <p style="color: #666; margin-bottom: 30px;">This generates your PWA icons safely as file blobs.</p>
+
+    <img id="previewImg" class="preview" alt="Icon Preview">
+
+    <br>
+    
+    <button onclick="downloadIcon(512, 'icon-512.png')" class="btn btn-primary">Download icon-512.png</button>
+    <button onclick="downloadIcon(192, 'icon-192.png')" class="btn btn-secondary">Download icon-192.png</button>
+
+    <script>
+        function drawCanvas(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#d97757';
+            ctx.fillRect(0, 0, size, size);
+
+            ctx.lineWidth = size * 0.05;
+            ctx.strokeStyle = '#f9f7f2';
+            ctx.strokeRect(size * 0.15, size * 0.15, size * 0.7, size * 0.7);
+
+            ctx.fillStyle = '#f9f7f2';
+            ctx.font = `bold ${size * 0.5}px 'Georgia', serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('S', size / 2, size / 2 + (size * 0.04));
+
+            return canvas;
+        }
+
+        window.onload = () => {
+            const previewCanvas = drawCanvas(512);
+            document.getElementById('previewImg').src = previewCanvas.toDataURL('image/png');
+        };
+
+        function downloadIcon(size, filename) {
+            const canvas = drawCanvas(size);
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            }, 'image/png');
+        }
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SEVA SCAN | Document Hub</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#d97757">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --bg: #f9f7f2; --accent: #d97757; }
+        body { background: var(--bg); font-family: 'Inter', sans-serif; color: #1a1a1a; -webkit-tap-highlight-color: transparent; }
+        .serif { font-family: 'Source Serif Pro', serif; }
+        .claude-card { background: white; border: 1px solid #e5e0d8; border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); transition: all 0.2s ease; }
+        .claude-card:active { transform: scale(0.98); }
+        #editor-container { height: 50vh; background: #0a0a0a; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .cropper-view-box, .cropper-face { border-radius: 0; }
+        .cropper-line, .cropper-point { background-color: var(--accent); }
+        #previewModal { backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="p-4 md:p-8 max-w-2xl mx-auto min-h-screen flex flex-col">
+
+    <header class="mb-8 flex justify-between items-end">
+        <div>
+            <h1 class="serif text-4xl font-semibold mb-1">SEVA <span class="text-[#d97757]">SCAN</span></h1>
+            <p class="text-sm text-gray-500 font-medium">A Pammi TBI Project</p>
+        </div>
+        <div id="pageCounter" class="hidden text-xs font-bold bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm text-[#d97757]">Page 1/1</div>
+    </header>
+
+    <div id="hubStage" class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 content-start">
+        <div id="uploadCard" class="claude-card p-10 text-center cursor-pointer hover:border-orange-300 flex flex-col items-center justify-center min-h-[220px]">
+            <input type="file" id="uploadInput" accept=".pdf, image/*" multiple class="hidden">
+            <div class="w-14 h-14 bg-orange-50 text-[#d97757] rounded-full flex items-center justify-center mb-4">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            </div>
+            <h2 class="text-xl font-semibold mb-1">Upload File</h2>
+            <p class="text-sm text-gray-400">PDF, JPG, PNG (Max 5MB)</p>
+        </div>
+
+        <div id="scanCard" class="claude-card p-10 text-center cursor-pointer hover:border-orange-300 flex flex-col items-center justify-center min-h-[220px]">
+            <input type="file" id="scanInput" accept="image/*" capture="environment" multiple class="hidden">
+            <div class="w-14 h-14 bg-stone-100 text-stone-600 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <h2 class="text-xl font-semibold mb-1">Scan Sheets</h2>
+            <p class="text-sm text-gray-400">Use phone camera</p>
+        </div>
+    </div>
+
+    <div id="processing" class="hidden claude-card p-12 text-center mt-4">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#d97757] mx-auto mb-6"></div>
+        <p id="processingText" class="serif text-xl font-medium">Analyzing Document...</p>
+    </div>
+
+    <div id="editorStage" class="hidden space-y-4 flex-1">
+        <div id="editor-container">
+            <img id="imageToCrop" style="display: block; max-width: 100%;">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <button id="rotateBtn" class="py-4 bg-white border border-[#e5e0d8] rounded-xl text-sm font-semibold">Rotate 90°</button>
+            <button id="autoCropBtn" class="py-4 bg-orange-50 text-[#d97757] rounded-xl text-sm font-bold border border-orange-100">Reset Align</button>
+        </div>
+        <button id="nextBtn" class="w-full py-5 bg-[#d97757] text-white rounded-xl font-bold shadow-lg text-lg">Apply Contrast & Next →</button>
+    </div>
+
+    <div id="finishStage" class="hidden space-y-4">
+        <div class="claude-card p-8 text-center mb-6 border-green-200 bg-green-50/30">
+            <h2 class="serif text-2xl font-semibold text-green-800 mb-1">Document Ready!</h2>
+            <p class="text-sm text-gray-500">A4 Portrait • High Contrast</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+            <button id="previewBtn" class="py-4 bg-white border border-[#e5e0d8] rounded-xl font-semibold shadow-sm flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Preview
+            </button>
+            
+            <button id="downloadBtn" class="py-4 bg-white border border-[#e5e0d8] rounded-xl font-semibold shadow-sm flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Download
+            </button>
+        </div>
+
+        <button id="shareBtn" class="w-full py-5 bg-blue-600 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 mt-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+            Share (WhatsApp, Gmail, Outlook)
+        </button>
+        <p class="text-center text-xs text-gray-400 mt-2 cursor-pointer hover:underline" onclick="location.reload()">Start over with a new document</p>
+    </div>
+
+    <div id="previewModal" class="hidden fixed inset-0 bg-black/50 z-50 flex flex-col p-4">
+        <div class="flex justify-between items-center bg-white p-4 rounded-t-xl">
+            <h3 class="font-bold">Document Preview</h3>
+            <button id="closePreviewBtn" class="text-red-500 font-bold px-4">Close</button>
+        </div>
+        <iframe id="pdfIframe" class="w-full flex-1 bg-gray-100 rounded-b-xl border-none"></iframe>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        const { jsPDF } = window.jspdf;
+
+        let cropper;
+        let pagesToProcess = [];
+        let currentPageIndex = 0;
+        const outDoc = new jsPDF('p', 'mm', 'a4');
+        let finalPdfBlob = null; 
+
+        document.getElementById('uploadCard').onclick = () => document.getElementById('uploadInput').click();
+        document.getElementById('scanCard').onclick = () => document.getElementById('scanInput').click();
+        document.getElementById('uploadInput').onchange = (e) => handleFiles(e.target.files);
+        document.getElementById('scanInput').onchange = (e) => handleFiles(e.target.files);
+
+        async function handleFiles(fileList) {
+            const files = Array.from(fileList);
+            if (files.length === 0) return;
+
+            document.getElementById('hubStage').classList.add('hidden');
+            document.getElementById('processing').classList.remove('hidden');
+
+            for (let file of files) {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`Skipping ${file.name} - over 5MB limit`);
+                    continue; 
+                }
+                if (file.type === 'application/pdf') {
+                    await extractPDF(file);
+                } else if (file.type.startsWith('image/')) {
+                    await readImage(file);
+                }
+            }
+
+            if (pagesToProcess.length > 0) {
+                document.getElementById('processing').classList.add('hidden');
+                document.getElementById('editorStage').classList.remove('hidden');
+                document.getElementById('pageCounter').classList.remove('hidden');
+                loadEditor();
+            } else {
+                alert("No valid files found."); location.reload();
+            }
+        }
+
+        async function extractPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 2.0 });
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width; canvas.height = viewport.height;
+                await page.render({ canvasContext: ctx, viewport }).promise;
+
+                if (canvas.width > canvas.height) {
+                    pagesToProcess.push(extractHalf(canvas, 0)); 
+                    pagesToProcess.push(extractHalf(canvas, 1)); 
+                } else {
+                    pagesToProcess.push(canvas.toDataURL('image/jpeg', 0.9));
+                }
+            }
+        }
+
+        async function readImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => { pagesToProcess.push(e.target.result); resolve(); };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function extractHalf(source, side) {
+            const temp = document.createElement('canvas');
+            const w = source.width / 2; const h = source.height;
+            temp.width = h; temp.height = w;
+            const ctx = temp.getContext('2d');
+            ctx.translate(temp.width/2, temp.height/2);
+            ctx.rotate(-90 * Math.PI / 180);
+            ctx.drawImage(source, side * w, 0, w, h, -w/2, -h/2, w, h);
+            return temp.toDataURL('image/jpeg', 0.9);
+        }
+
+        function loadEditor() {
+            if (currentPageIndex >= pagesToProcess.length) {
+                finalizeDocument();
+                return;
+            }
+            document.getElementById('pageCounter').innerText = `Sheet ${currentPageIndex + 1}/${pagesToProcess.length}`;
+            document.getElementById('imageToCrop').src = pagesToProcess[currentPageIndex];
+            if (cropper) cropper.destroy();
+            cropper = new Cropper(document.getElementById('imageToCrop'), {
+                aspectRatio: 210 / 297, viewMode: 1, autoCropArea: 0.95, background: false
+            });
+        }
+
+        document.getElementById('autoCropBtn').onclick = () => cropper.reset();
+        document.getElementById('rotateBtn').onclick = () => cropper.rotate(90);
+
+        document.getElementById('nextBtn').onclick = () => {
+            document.getElementById('nextBtn').innerText = "Processing...";
+            setTimeout(() => {
+                const canvas = cropper.getCroppedCanvas({ width: 1200, fillColor: '#ffffff' }); 
+                const ctx = canvas.getContext('2d');
+                const fCanvas = document.createElement('canvas');
+                fCanvas.width = canvas.width; fCanvas.height = canvas.height;
+                const fCtx = fCanvas.getContext('2d');
+                fCtx.filter = 'contrast(1.6) brightness(1.05) grayscale(1)';
+                fCtx.drawImage(canvas, 0, 0);
+
+                if (currentPageIndex > 0) outDoc.addPage();
+                outDoc.addImage(fCanvas.toDataURL('image/jpeg', 0.5), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+                
+                currentPageIndex++;
+                document.getElementById('nextBtn').innerText = "Apply Contrast & Next →";
+                loadEditor();
+            }, 50);
+        };
+
+        function finalizeDocument() {
+            finalPdfBlob = outDoc.output('blob'); 
+            document.getElementById('editorStage').classList.add('hidden');
+            document.getElementById('pageCounter').classList.add('hidden');
+            document.getElementById('finishStage').classList.remove('hidden');
+        }
+
+        document.getElementById('previewBtn').onclick = () => {
+            const url = URL.createObjectURL(finalPdfBlob);
+            document.getElementById('pdfIframe').src = url;
+            document.getElementById('previewModal').classList.remove('hidden');
+        };
+        document.getElementById('closePreviewBtn').onclick = () => {
+            document.getElementById('previewModal').classList.add('hidden');
+        };
+
+        document.getElementById('downloadBtn').onclick = () => {
+            outDoc.save('SEVA_Scan_Submission.pdf');
+        };
+
+        document.getElementById('shareBtn').onclick = async () => {
+            const file = new File([finalPdfBlob], 'SEVA_Scan_Submission.pdf', { type: 'application/pdf' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        title: 'SEVA Scan Document',
+                        text: 'Scanned via SEVA SCAN (A Pammi TBI Project)',
+                        files: [file]
+                    });
+                } catch (error) {
+                    console.log('Share canceled or failed', error);
+                }
+            } else {
+                alert("Native file sharing is not supported on this browser. Please Download instead.");
+            }
+        };
+
+        // Offline Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SEVA SCAN Offline Worker Registered!'))
+                    .catch(err => console.error('Service Worker Registration Failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
