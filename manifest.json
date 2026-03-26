@@ -1,0 +1,21 @@
+{
+  "name": "SEVA SCAN",
+  "short_name": "SEVA SCAN",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f9f7f2",
+  "theme_color": "#d97757",
+  "description": "A Pammi TBI Project: Offline PDF sheet scanner and enhancer.",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
